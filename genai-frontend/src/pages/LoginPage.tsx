@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { GoogleLogin } from '@react-oauth/google'
-import { useAuthStore } from '../stores/authStore'
+import { useAuth } from '../contexts/AuthContext'
 import { FileText, Eye, EyeOff } from 'lucide-react'
 
 const LoginPage = () => {
@@ -10,7 +9,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   
-  const { login, loading, error, clearError } = useAuthStore()
+  const { login, loading, error, clearError } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,21 +20,8 @@ const LoginPage = () => {
       await login(email, password)
       navigate('/dashboard')
     } catch (err) {
-      // Error is handled by the store
+      // Error is handled by the context
     }
-  }
-
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    try {
-      await useAuthStore.getState().googleLogin(credentialResponse.credential)
-      navigate('/dashboard')
-    } catch (err) {
-      // Error is handled by the store
-    }
-  }
-
-  const handleGoogleError = () => {
-    useAuthStore.getState().setError('Google login failed')
   }
 
   return (
@@ -73,28 +59,6 @@ const LoginPage = () => {
                 {error}
               </motion.div>
             )}
-
-            {/* Google Login Button */}
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                theme="outline"
-                size="large"
-                text="signin_with"
-                shape="rectangular"
-                width="100%"
-              />
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with email</span>
-              </div>
-            </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">

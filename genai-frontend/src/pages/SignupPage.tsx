@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { GoogleLogin } from '@react-oauth/google'
-import { useAuthStore } from '../stores/authStore'
-import { FileText, Eye, EyeOff, CheckCircle } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { FileText, Eye, EyeOff } from 'lucide-react'
 
 const SignupPage = () => {
   const [name, setName] = useState('')
@@ -12,9 +11,8 @@ const SignupPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [agreedToTerms, setAgreedToTerms] = useState(false)
   
-  const { signup, loading, error, clearError } = useAuthStore()
+  const { signup, loading, error, clearError } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,10 +20,7 @@ const SignupPage = () => {
     clearError()
     
     if (password !== confirmPassword) {
-      return
-    }
-    
-    if (!agreedToTerms) {
+      // Handle password mismatch error
       return
     }
     
@@ -33,32 +28,12 @@ const SignupPage = () => {
       await signup(name, email, password)
       navigate('/dashboard')
     } catch (err) {
-      // Error is handled by the store
+      // Error is handled by the context
     }
   }
-
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    try {
-      await useAuthStore.getState().googleLogin(credentialResponse.credential)
-      navigate('/dashboard')
-    } catch (err) {
-      // Error is handled by the store
-    }
-  }
-
-  const handleGoogleError = () => {
-    useAuthStore.getState().setError('Google signup failed')
-  }
-
-  const passwordRequirements = [
-    { text: 'At least 8 characters', met: password.length >= 8 },
-    { text: 'Contains uppercase letter', met: /[A-Z]/.test(password) },
-    { text: 'Contains lowercase letter', met: /[a-z]/.test(password) },
-    { text: 'Contains number', met: /\d/.test(password) }
-  ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -72,7 +47,7 @@ const SignupPage = () => {
             <span className="text-2xl font-bold text-gray-900">LegalAI</span>
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-          <p className="text-gray-600">Start your journey with LegalAI today</p>
+          <p className="text-gray-600">Sign up to get started with LegalAI</p>
         </div>
 
         {/* Signup Form */}
@@ -92,28 +67,6 @@ const SignupPage = () => {
                 {error}
               </motion.div>
             )}
-
-            {/* Google Signup Button */}
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                theme="outline"
-                size="large"
-                text="signup_with"
-                shape="rectangular"
-                width="100%"
-              />
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with email</span>
-              </div>
-            </div>
 
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -156,7 +109,7 @@ const SignupPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors pr-12"
-                  placeholder="Create a password"
+                  placeholder="Enter your password"
                   required
                 />
                 <button
@@ -167,26 +120,6 @@ const SignupPage = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              
-              {/* Password Requirements */}
-              {password && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-3 space-y-1"
-                >
-                  {passwordRequirements.map((req, index) => (
-                    <div key={index} className="flex items-center space-x-2 text-sm">
-                      <CheckCircle 
-                        className={`h-4 w-4 ${req.met ? 'text-green-500' : 'text-gray-300'}`} 
-                      />
-                      <span className={req.met ? 'text-green-600' : 'text-gray-500'}>
-                        {req.text}
-                      </span>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
             </div>
 
             <div>
@@ -213,31 +146,11 @@ const SignupPage = () => {
               </div>
             </div>
 
-            <div className="flex items-start">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
-              />
-              <label htmlFor="terms" className="ml-2 text-sm text-gray-600">
-                I agree to the{' '}
-                <Link to="#" className="text-blue-600 hover:text-blue-500">
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link to="#" className="text-blue-600 hover:text-blue-500">
-                  Privacy Policy
-                </Link>
-              </label>
-            </div>
-
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={loading || !agreedToTerms}
+              disabled={loading}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating Account...' : 'Create Account'}

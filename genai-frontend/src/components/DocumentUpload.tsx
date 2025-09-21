@@ -1,20 +1,27 @@
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Upload, FileText, Image, File, X, Download } from 'lucide-react'
+import { documentAPI } from '../utils/api'
 
 interface UploadedFile {
   id: string
   name: string
   type: string
   size: number
-  url: string
+  file: File
+}
+
+interface AnalysisResult {
+  summary: string
+  download_link: string
 }
 
 const DocumentUpload = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [analysisResult, setAnalysisResult] = useState<any>(null)
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -40,12 +47,17 @@ const DocumentUpload = () => {
   }
 
   const handleFiles = (files: File[]) => {
-    const newFiles: UploadedFile[] = files.map(file => ({
+    const validFiles = files.filter(file => {
+      const ext = file.name.split('.').pop()?.toLowerCase()
+      return ext && ['pdf', 'png', 'jpg', 'jpeg'].includes(ext)
+    })
+
+    const newFiles: UploadedFile[] = validFiles.map(file => ({
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
       type: file.type,
       size: file.size,
-      url: URL.createObjectURL(file)
+      file: file
     }))
     setUploadedFiles(prev => [...prev, ...newFiles])
   }
@@ -58,36 +70,40 @@ const DocumentUpload = () => {
     if (uploadedFiles.length === 0) return
     
     setIsProcessing(true)
+    setError(null)
+    setAnalysisResult(null)
     
-    // Simulate API call to process documents
-    await new Promise(resolve => setTimeout(resolve, 3000))
+    try {
+      // Process the first file (backend only supports single file upload)
+      const file = uploadedFiles[0]
+      const result = await documentAPI.upload(file.file)
+      
+      setAnalysisResult(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const downloadSummary = async () => {
+    if (!analysisResult?.download_link) return
     
-    // Mock analysis result
-    setAnalysisResult({
-      summary: "This is a rental agreement for a 2-bedroom apartment. Key terms include a 12-month lease, monthly rent of $2,500, and a security deposit of $5,000. The tenant is responsible for utilities and must give 30 days notice before moving out.",
-      riskLevel: 75,
-      keyPoints: [
-        "12-month lease term",
-        "Monthly rent: $2,500",
-        "Security deposit: $5,000",
-        "Tenant responsible for utilities",
-        "30-day notice required for termination"
-      ],
-      concerns: [
-        "High security deposit (2 months rent)",
-        "No pet policy mentioned",
-        "Maintenance responsibilities unclear",
-        "Early termination penalty not specified"
-      ],
-      recommendations: [
-        "Negotiate lower security deposit",
-        "Clarify pet policy in writing",
-        "Define maintenance responsibilities",
-        "Add early termination clause"
-      ]
-    })
-    
-    setIsProcessing(false)
+    try {
+      const filename = analysisResult.download_link.split('/').pop() || 'summary.pdf'
+      const blob = await documentAPI.download(filename)
+      
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Download failed')
+    }
   }
 
   const getFileIcon = (type: string) => {
@@ -127,7 +143,7 @@ const DocumentUpload = () => {
           Drop your documents here
         </h3>
         <p className="text-gray-600 mb-4">
-          Supports PDF, DOC, DOCX, and image files
+          Supports PDF and image files (PNG, JPG, JPEG)
         </p>
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -139,7 +155,7 @@ const DocumentUpload = () => {
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          accept=".pdf,.jpg,.jpeg,.png"
           onChange={handleFileInput}
           className="hidden"
         />
@@ -181,8 +197,19 @@ const DocumentUpload = () => {
             disabled={isProcessing}
             className="mt-4 w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isProcessing ? 'Processing Documents...' : 'Analyze Documents'}
+            {isProcessing ? 'Processing Document...' : 'Analyze Document'}
           </button>
+        </motion.div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm"
+        >
+          {error}
         </motion.div>
       )}
 
@@ -195,7 +222,10 @@ const DocumentUpload = () => {
         >
           <div className="flex justify-between items-center">
             <h3 className="text-xl font-bold text-gray-900">Analysis Results</h3>
-            <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            <button 
+              onClick={downloadSummary}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
               <Download className="h-4 w-4" />
               <span>Download PDF</span>
             </button>
@@ -205,46 +235,6 @@ const DocumentUpload = () => {
           <div className="bg-blue-50 rounded-lg p-6">
             <h4 className="font-semibold text-blue-900 mb-3">Document Summary</h4>
             <p className="text-blue-800">{analysisResult.summary}</p>
-          </div>
-
-          {/* Key Points */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-green-50 rounded-lg p-6">
-              <h4 className="font-semibold text-green-900 mb-3">Key Points</h4>
-              <ul className="space-y-2">
-                {analysisResult.keyPoints.map((point: string, index: number) => (
-                  <li key={index} className="flex items-start space-x-2 text-green-800">
-                    <span className="text-green-600 mt-1">•</span>
-                    <span className="text-sm">{point}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="bg-red-50 rounded-lg p-6">
-              <h4 className="font-semibold text-red-900 mb-3">Concerns</h4>
-              <ul className="space-y-2">
-                {analysisResult.concerns.map((concern: string, index: number) => (
-                  <li key={index} className="flex items-start space-x-2 text-red-800">
-                    <span className="text-red-600 mt-1">•</span>
-                    <span className="text-sm">{concern}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Recommendations */}
-          <div className="bg-yellow-50 rounded-lg p-6">
-            <h4 className="font-semibold text-yellow-900 mb-3">Recommendations</h4>
-            <ul className="space-y-2">
-              {analysisResult.recommendations.map((rec: string, index: number) => (
-                <li key={index} className="flex items-start space-x-2 text-yellow-800">
-                  <span className="text-yellow-600 mt-1">•</span>
-                  <span className="text-sm">{rec}</span>
-                </li>
-              ))}
-            </ul>
           </div>
         </motion.div>
       )}

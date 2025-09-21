@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { useAuthStore } from '../stores/authStore'
+import { useAuth } from '../contexts/AuthContext'
 import { FileText, Upload, MessageCircle, History, Download, Bot } from 'lucide-react'
 import DocumentUpload from '../components/DocumentUpload'
 import ChatInterface from '../components/ChatInterface'
 import HistoryTab from '../components/HistoryTab'
-import LawyerRecommendations from '../components/LawyerRecommendations'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('upload')
-  const { user, logout } = useAuthStore()
+  const { user, logout } = useAuth()
 
   const tabs = [
     { id: 'upload', label: 'Upload Document', icon: Upload },
@@ -113,36 +112,11 @@ const Dashboard = () => {
               </button>
             </motion.div>
 
-            {/* Lawyer Recommendations */}
-            <LawyerRecommendations />
-
-            {/* Risk Assessment */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="bg-white rounded-lg shadow-sm p-6"
-            >
-              <h3 className="font-semibold text-gray-900 mb-4">Risk Assessment</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Contract Risk Level</span>
-                  <span className="text-sm font-medium text-red-600">High (75%)</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-red-500 h-2 rounded-full" style={{ width: '75%' }}></div>
-                </div>
-                <p className="text-xs text-gray-500">
-                  This contract has several unfavorable terms that may put you at risk.
-                </p>
-              </div>
-            </motion.div>
-
             {/* Quick Actions */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
               className="bg-white rounded-lg shadow-sm p-6"
             >
               <h3 className="font-semibold text-gray-900 mb-4">Quick Actions</h3>
